@@ -1,30 +1,46 @@
 
 module Utils where
 
-open import Agda.Primitive as Prim public
-
-
-open import Data.Nat as ℕ using (ℕ; zero; suc; _≤_; z≤n; s≤s; _<_; _≥_; _>_; ≤-pred; _≤?_) public
+open import Agda.Primitive as Prim using () public
+open import Agda.Builtin.FromNat public
+open import Agda.Builtin.FromNeg
 open import Agda.Builtin.Unit
+open import Data.Nat as ℕ using (ℕ; zero; suc; _≤_; z≤n; s≤s; _<_; _≥_; _>_; ≤-pred; _≤?_) public
 
-record HasDependent+ {a} (X : Set a) (P : X -> Set a) (A : ∀ {x y} -> P x -> P y -> Set a) : Set a where
+instance
+  NumNat : Number ℕ
+  NumNat .Number.Constraint _ = ⊤
+  NumNat .Number.fromNat n = n
+
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; trans; cong; subst) public
+
+record DependentMonoid+ {a} (X : Set a) (P : X -> Set a) (A : ∀ {x y} -> P x -> P y -> Set a) : Set a where
   field _+_ : ∀ {x y z} {a : P x} {b : P y} {c : P z} -> A a b -> A b c -> A a c
         unit : ∀ {x} (a : P x) -> A a a
-open HasDependent+ {{...}} public
+        identityˡ  : ∀ {x y} {a : P x} {b : P y} (α : A a b) -> unit a + α ≡ α
+        identityʳ : ∀ {x y} {a : P x} {b : P y} (α : A a b) -> α + unit b ≡ α
+        assoc : ∀ {x y z w} {a : P x} {b : P y} {c : P z} {d : P w} -> (α : A a b) (β : A b c) (γ : A c d) -> (α + β) + γ ≡ α + (β + γ)
+open DependentMonoid+ {{...}} public
 
 _×_ : ∀ {a} {X : Set a} {P : X -> Set a} {A : ∀ {x y} -> P x -> P y -> Set a}
-        {{_ : HasDependent+ X P A}} {x : X} {a : P x} -> ℕ -> A a a -> A a a
+        {{_ : DependentMonoid+ X P A}} {x : X} {a : P x} -> ℕ -> A a a -> A a a
 zero × _ = unit _
 (suc n) × p = p + (n × p)
 
+open import Data.Nat.Properties using (+-suc; +-assoc; +-comm; +-identityˡ; +-identityʳ)
+
 instance
-  ℕ-Dep+ : HasDependent+ ⊤ (\ _ -> ⊤) (\ _ _ -> ℕ)
-  ℕ-Dep+ = record { _+_ = ℕ._+_; unit = \ _ -> 0 }
+  ℕ-Dep+ : DependentMonoid+ ⊤ (\ _ -> ⊤) (\ _ _ -> ℕ)
+  ℕ-Dep+ = record { _+_ = ℕ._+_; unit = \ _ -> 0; identityˡ = +-identityˡ; identityʳ = +-identityʳ; assoc = +-assoc}
 
 
-open import Data.Fin as Fin using (Fin; zero; suc; pred; Fin′; #_; fromℕ; fromℕ≤; toℕ; inject; inject!; inject+; inject₁; raise) public
-open import Data.Nat.Properties using (+-suc; +-assoc; +-comm)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; trans; cong; subst) public
+open import Data.Fin as Fin using (Fin; zero; suc; pred; Fin′; fromℕ; fromℕ≤; toℕ; inject; inject!; inject+; inject₁; raise) public
+open import Relation.Nullary.Decidable using (True; False; toWitness) public
+
+instance
+  NumFin : ∀ {n} -> Number (Fin n)
+  NumFin {n} .Number.Constraint m = True (suc m ℕ.≤? n)
+  NumFin {n} .Number.fromNat m {{m≤n}} = fromℕ≤ {m} {n} (toWitness m≤n)
 
 inj₊₁ : {n : ℕ} {i : Fin n} -> Fin′ (suc i) -> Fin n
 inj₊₁ = inject!
@@ -126,12 +142,26 @@ open import Data.Integer.Properties as ℤProp using ()
 open import Data.Nat.DivMod as DivMod using (_%_; a%n%n≡a%n) public
 
 open import Relation.Binary.PropositionalEquality
-open import Relation.Nullary.Decidable using (True; False; toWitness) public
 open ≡-Reasoning
 
+open import Data.Product.Relation.Pointwise.Dependent using (Pointwise-≡⇒≡; _,_)
+≡-≅-irrelevanceʳ : ∀ {l} {A₁ : Set l} {a₁ a₂ a₃ a₄ : A₁} (p : a₁ ≡ a₂) (q : a₃ ≡ a₄) → a₂ ≡ a₄ → p ≅ q
+≡-≅-irrelevanceʳ refl refl refl = _≅_.refl
+
 instance
-  ℤ-Dep+ : HasDependent+ ⊤ (\ _ -> ⊤) (\ _ _ -> ℤ)
-  ℤ-Dep+ = record { _+_ = ℤ._+_; unit = \ _ -> ℤ.pos 0 }
+  NumInt : Number ℤ
+  NumInt .Number.Constraint _ = ⊤
+  NumInt .Number.fromNat m = ℤ.pos m
+
+instance
+  NegNumInt : Negative ℤ
+  NegNumInt .Negative.Constraint _ = ⊤
+  NegNumInt .Negative.fromNeg zero    = ℤ.pos zero
+  NegNumInt .Negative.fromNeg (suc m) = ℤ.negsuc m
+
+instance
+  ℤ-Dep+ : DependentMonoid+ ⊤ (\ _ -> ⊤) (\ _ _ -> ℤ)
+  ℤ-Dep+ = record { _+_ = ℤ._+_; unit = \ _ -> ℤ.pos 0; identityˡ = ℤProp.+-identityˡ; identityʳ = ℤProp.+-identityʳ; assoc = ℤProp.+-assoc}
 
 
 ℤmod-Rep : ℕ -> Set
@@ -147,24 +177,53 @@ instance
 
 open import Relation.Nullary using (yes)
 
-ℤmod-Cond-Dec : (n : ℕ) -> ℤmod-Rep n -> Set
-ℤmod-Cond-Dec zero i = ⊤
-ℤmod-Cond-Dec (suc n) i = True (i % suc n ℕ.≟ i)
+instance
+  NumIntMod : ∀ {n} -> Number (ℤmod n)
+  NumIntMod .Number.Constraint _ = ⊤
+  NumIntMod {zero}  .Number.fromNat m = < ℤ.pos m , tt >
+  NumIntMod {suc n} .Number.fromNat m = < m % suc n , DivMod.a%n%n≡a%n m n >
 
-fromRep : (n : ℕ) -> (i : ℤmod-Rep n) -> {cond : ℤmod-Cond-Dec n i} -> ℤmod n
-fromRep zero    i {cond} = < i , toWitness cond >
-fromRep (suc n) i {cond} = < i , toWitness cond >
+instance
+  NegNumIntMod : ∀ {n} -> Negative (ℤmod n)
+  NegNumIntMod .Negative.Constraint _ = ⊤
+  NegNumIntMod {zero}  .Negative.fromNeg zero    = < ℤ.pos zero , tt >
+  NegNumIntMod {zero}  .Negative.fromNeg (suc m) = < ℤ.negsuc m , tt >
+  NegNumIntMod {suc n} .Negative.fromNeg m = < (suc n ℕ.∸ (m % suc n)) % suc n , DivMod.a%n%n≡a%n (suc n ℕ.∸ (m % suc n)) n >
 
-syntax fromRep n i = i mod n
+addmod : ∀ {n} -> ℤmod n -> ℤmod n -> ℤmod n
+addmod {zero}  < m₁ , _ > < m₂ , _ > = < m₁ + m₂ , tt >
+addmod {suc n} < m₁ , _ > < m₂ , _ > = < m₁ + m₂ % suc n , DivMod.a%n%n≡a%n (m₁ + m₂) n >
+
+addmod-assoc : ∀ {n} (i j k : ℤmod n) -> addmod (addmod i j) k ≡ addmod i (addmod j k)
+addmod-assoc {zero} < i , tt > < j , tt > < k , tt > = cong (λ z → < z , tt >) (ℤProp.+-assoc i j k)
+addmod-assoc {suc n} < i , eq₁ > < j , eq₂ > < k , eq₃ > = Pointwise-≡⇒≡ ( lem , ≡-≅-irrelevanceʳ _ _ lem )
+  where lem : Σ.proj₁ (addmod (addmod < i , eq₁ > < j , eq₂ >) < k , eq₃ >)
+              ≡ Σ.proj₁ (addmod < i , eq₁ > (addmod < j , eq₂ > < k , eq₃ >))
+        lem = begin
+          (i + j % m    ) + k       % m ≡⟨ DivMod.%-distribˡ-+ (_+_ i j % m) k n ⟩
+          (i + j % m % m) + (k % m) % m ≡⟨ cong (λ z → _+_ z (k % m) % m) (a%n%n≡a%n (_+_ i j) n) ⟩
+          (i + j % m    ) + (k % m) % m ≡⟨ sym (DivMod.%-distribˡ-+ (_+_ i j) k n) ⟩
+          (i + j)     + k           % m ≡⟨ cong (_% m) (+-assoc i j k) ⟩
+          i       + (j + k)         % m ≡⟨ DivMod.%-distribˡ-+ i (_+_ j k) n ⟩
+          (i % m) + (j + k % m    ) % m ≡⟨ cong (λ z → _+_ (i % m) z % m) (sym (a%n%n≡a%n (_+_ j k) n)) ⟩
+          (i % m) + (j + k % m % m) % m ≡⟨ sym (DivMod.%-distribˡ-+ i (j + k % m) n) ⟩
+          i       + (j + k % m    ) % m ∎
+          where m = suc n
+instance
+  ℤmod-Dep+ : ∀ {n} -> DependentMonoid+ ⊤ (\_ -> ⊤) (\ _ _ -> ℤmod n)
+  ℤmod-Dep+ = record { _+_ = addmod; unit = \ _ -> 0; identityˡ = addmod-idˡ; identityʳ = addmod-idʳ; assoc = addmod-assoc }
+    where addmod-idˡ : ∀ {n} (i : ℤmod n) -> addmod 0 i ≡ i
+          addmod-idˡ {zero} < i , tt > = cong (λ z → < z , tt >) (ℤProp.+-identityˡ i)
+          addmod-idˡ {suc n} < i , eq > = Pointwise-≡⇒≡ ( eq , ≡-≅-irrelevanceʳ _ _ eq )
+          addmod-idʳ : ∀ {n} (i : ℤmod n) -> addmod i 0 ≡ i
+          addmod-idʳ {zero} < i , tt > = cong (λ z → < z , tt >) (ℤProp.+-identityʳ i)
+          addmod-idʳ {suc n} < i , eq > = Pointwise-≡⇒≡ ( eq' , ≡-≅-irrelevanceʳ _ _ eq' )
+            where eq' : Σ.proj₁ (addmod < i , eq > 0) ≡ i
+                  eq' rewrite +-comm i 0 = eq
 
 raisem : ∀ {n} -> ℕ -> ℤmod n -> ℤmod n
 raisem {zero} i < k , tt > = < ℤ.pos i ℤ.+ k , tt >
 raisem {suc n} i < k , eq > = < (i ℕ.+ k) % suc n , DivMod.a%n%n≡a%n (i ℕ.+ k) n >
-
-open import Data.Product.Relation.Pointwise.Dependent using (Pointwise-≡⇒≡; _,_)
-
-≡-≅-irrelevanceʳ : ∀ {l} {A₁ : Set l} {a₁ a₂ a₃ a₄ : A₁} (p : a₁ ≡ a₂) (q : a₃ ≡ a₄) → a₂ ≡ a₄ → p ≅ q
-≡-≅-irrelevanceʳ refl refl refl = _≅_.refl
 
 raisem-actson : ∀ {n} i j (k : ℤmod n) -> raisem i (raisem j k) ≡ raisem (i + j) k
 raisem-actson {zero} i j < k , tt > = cong (\ z -> < z , tt >) (sym (ℤProp.+-assoc (ℤ.pos i) (ℤ.pos j) k))

@@ -4,7 +4,7 @@ An experimental formalization of Knot Theory in Agda, with specific attention pa
 
 ## TODO
 
-- Remaining R0 moves in `Isotopy.agda`
+- Rework to remove inconvenient induction in `Isotopy.agda`
 - Documentation, explanation, references throughout
 - Proof that tb, etc. are actually invariant!
 - Some of the Legendrian Knot Atlas as examples

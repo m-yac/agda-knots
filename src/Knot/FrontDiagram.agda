@@ -42,47 +42,45 @@ dGr' : ∀ {l r n} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) r}
 dGr' i μ x = dGr i (inc μ) (subst (\ z -> nGradedFD _ _ (insert2 i < inc _ , z > _)) (sym (inv-dec-inc μ)) x)
 
 
-b_gr_ : ∀ {l r n} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) r}
-     -> (i : ℕ) {ineq₁ : True (suc i ≤? suc r)} (μ : ℤmod-Rep n) {ineq₂ : ℤmod-Cond-Dec n μ}
-     -> nGradedFD n ls rs
-     -> nGradedFD n ls (insert2 (fromℕ≤ (toWitness ineq₁)) < (fromRep _ μ {ineq₂}) , dec (fromRep _ μ {ineq₂}) > rs)
-b_gr_ i {ineq₁} μ {ineq₂} = bGr (fromℕ≤ (toWitness ineq₁)) (fromRep _ μ {ineq₂})
 
 b+_ : ∀ {l r} {ls : Vec (ℤmod 2) l} {rs : Vec (ℤmod 2) r}
-     -> (i : ℕ) {ineq : True (suc i ≤? suc r)}
-     -> 2-GradedFD ls rs
-     -> 2-GradedFD ls (insert2 (fromℕ≤ (toWitness ineq)) < 1 mod 2 , 0 mod 2 > rs)
-b+_ i {ineq} = bGr (fromℕ≤ (toWitness ineq)) (1 mod 2)
+      -> (i : Fin (1 + r))
+      -> 2-GradedFD ls rs
+      -> 2-GradedFD ls (insert2 i < 1 , 0 > rs)
+b+_ i = bGr i 1
 
 b-_ : ∀ {l r} {ls : Vec (ℤmod 2) l} {rs : Vec (ℤmod 2) r}
-     -> (i : ℕ) {ineq : True (suc i ≤? suc r)}
-     -> 2-GradedFD ls rs
-     -> 2-GradedFD ls (insert2 (fromℕ≤ (toWitness ineq)) < 0 mod 2 , 1 mod 2 > rs)
-b-_ i {ineq} = bGr (fromℕ≤ (toWitness ineq)) (0 mod 2)
+      -> (i : Fin (1 + r))
+      -> 2-GradedFD ls rs
+      -> 2-GradedFD ls (insert2 i < 0 , -1 > rs)
+b-_ i = bGr i 0
 
 b_ : ∀ {l r n} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) r}
-     -> (i : ℕ) {ineq : True (suc i ≤? suc r)} {μ : ℤmod n}
+     -> (i : Fin (1 + r)) -> {μ : ℤmod n} 
      -> nGradedFD n ls rs
-     -> nGradedFD n ls (insert2 (fromℕ≤ (toWitness ineq)) < μ , dec μ > rs)
-b_ i {ineq} {μ} = bGr (fromℕ≤ (toWitness ineq)) μ
+     -> nGradedFD n ls (insert2 i < μ , dec μ > rs)
+b_ i {μ} = bGr i μ
 
 c_ : ∀ {l r n} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) (2 + r)}
-     -> (i : ℕ) {ineq : True (suc i ≤? suc r)}
+     -> (i : Fin (1 + r))
      -> nGradedFD n ls rs
-     -> nGradedFD n ls (swap2 (fromℕ≤ (toWitness ineq)) rs)
-c_ i {ineq} = cGr (fromℕ≤ (toWitness ineq))
+     -> nGradedFD n ls (swap2 i rs)
+c_ i = cGr i
 
 d_ : ∀ {l r n} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) r}
-     -> (i : ℕ) {ineq : True (suc i ≤? suc r)} {μ : ℤmod n}
-     -> nGradedFD n ls (insert2 (fromℕ≤ (toWitness ineq)) < μ , dec μ > rs)
+     -> (i : Fin (1 + r)) -> {μ : ℤmod n}
+     -> nGradedFD n ls (insert2 i < μ , dec μ > rs)
      -> nGradedFD n ls rs
-d_ i {ineq} {μ} = dGr (fromℕ≤ (toWitness ineq)) μ
+d_ i {μ} = dGr i μ
 
-o+ : ∀ {m} -> Vec (ℤmod 2) m -> Vec (ℤmod 2) (suc m)
-o+ xs = (1 mod 2) ∷ xs
+gr_ : ∀ {m n} -> ℤmod n -> Vec (ℤmod n) m -> Vec (ℤmod n) (suc m)
+gr_ i xs = i ∷ xs
 
-o- : ∀ {m} -> Vec (ℤmod 2) m -> Vec (ℤmod 2) (suc m)
-o- xs = (0 mod 2) ∷ xs
+o-_ : ∀ {m} -> Vec (ℤmod 2) m -> Vec (ℤmod 2) (suc m)
+o-_ = gr 0
+
+o+_ : ∀ {m} -> Vec (ℤmod 2) m -> Vec (ℤmod 2) (suc m)
+o+_ = gr 1
 
 _,_ : ∀ {l} {X Y : Set l} -> X -> (X -> Y) -> Y
 x , f = f x
@@ -95,7 +93,7 @@ infixl 5 _<:_
 
 _unOri : ∀ (l : ℕ)  -> Vec (ℤmod 1) l
 zero unOri = []
-(suc l) unOri = (0 mod 1) ∷ (l unOri)
+(suc l) unOri = 0 ∷ (l unOri)
 
 
 TangleFD : ∀ {l r} -> Vec _ l -> Vec _ r -> Set
@@ -116,9 +114,23 @@ hcomp x (cGr i y) = cGr i (hcomp x y)
 hcomp x (dGr i μ y) = dGr i μ (hcomp x y)
 hcomp x (idPat ls) = x
 
+hcomp-assoc : ∀ {n} {a b c d} {as : Vec _ a} {bs : Vec _ b} {cs : Vec _ c} {ds : Vec _ d}
+              -> (α : nGradedFD n as bs) (β : nGradedFD n bs cs) (γ : nGradedFD n cs ds)
+              -> hcomp (hcomp α β) γ ≡ hcomp α (hcomp β γ)
+hcomp-assoc α β (bGr i μ γ) = cong (bGr i μ) (hcomp-assoc α β γ)
+hcomp-assoc α β (cGr i γ) = cong (cGr i) (hcomp-assoc α β γ)
+hcomp-assoc α β (dGr i μ γ) = cong (dGr i μ) (hcomp-assoc α β γ)
+hcomp-assoc α β (idPat ls) = refl
+
 instance
-  FD-Dep+ : ∀ {n} -> HasDependent+ ℕ (Vec (ℤmod n)) (nGradedFD n)
-  FD-Dep+ = record { _+_ = hcomp; unit = idPat }
+  FD-Dep+ : ∀ {n} -> DependentMonoid+ ℕ (Vec (ℤmod n)) (nGradedFD n)
+  FD-Dep+ = record { _+_ = hcomp; unit = idPat; identityˡ = hcomp-idˡ; identityʳ = λ _ → refl; assoc = hcomp-assoc }
+    where hcomp-idˡ : ∀ {n} {l r} {ls : Vec _ l} {rs : Vec _ r} (x : nGradedFD n ls rs)
+                      -> hcomp (idPat ls) x ≡ x
+          hcomp-idˡ (bGr i μ x) = cong (bGr i μ) (hcomp-idˡ x)
+          hcomp-idˡ (cGr i x) = cong (cGr i) (hcomp-idˡ x)
+          hcomp-idˡ (dGr i μ x) = cong (dGr i μ) (hcomp-idˡ x)
+          hcomp-idˡ (idPat ls) = refl
 
 
 len : ∀ {l r n} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> ℕ
@@ -174,12 +186,12 @@ split x after k = split x before (neg k)
 
 
 ex : TangleFD [] []
-ex = dGr (# 0) _ (bGr (# 0) (1 mod 2) (idPat []))
+ex = dGr 0 _ (bGr 0 1 (idPat []))
 
 ex' : TangleFD [] []
-ex' = _ <: b 0 gr 1 , d 0
+ex' = _ <: b+ 0 , d 0
 
-ex2 : TangleFD ([] , o+ , o+) ([] , o+ , o+)
+ex2 : TangleFD ([] , gr 0 , gr 1) ([] , gr 1 , gr 0)
 ex2 = _ <: c 0
 
 ex3 : TangleFD [] _
