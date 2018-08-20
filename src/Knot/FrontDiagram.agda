@@ -74,7 +74,7 @@ d_ : ∀ {l r n} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) r}
 d_ i {μ} = dGr i μ
 
 gr_ : ∀ {m n} -> ℤmod n -> Vec (ℤmod n) m -> Vec (ℤmod n) (suc m)
-gr_ i xs = i ∷ xs
+gr_ i xs = xs ∷ʳ i
 
 o-_ : ∀ {m} -> Vec (ℤmod 2) m -> Vec (ℤmod 2) (suc m)
 o-_ = gr 0
@@ -148,6 +148,18 @@ len-hcomp x (dGr i μ y) = cong suc (len-hcomp x y)
 len-hcomp x (idPat ls) = refl
 
 
+_above_ : ∀ {l r n} {ls : Vec _ l} {rs : Vec _ r} {t} (ts : Vec _ t)
+          -> nGradedFD n ls rs -> nGradedFD n (ts ++ ls) (ts ++ rs)
+[] above x = x
+(μt ∷ ts) above x = μt-above (ts above x)
+  where μt-above : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD _ ls rs -> nGradedFD _ (μt ∷ ls) (μt ∷ rs)
+        μt-above (bGr i μ x) = bGr (suc i) μ (μt-above x) 
+        μt-above (cGr i   x) = cGr (suc i)   (μt-above x) 
+        μt-above (dGr i μ x) = dGr (suc i) μ (μt-above x) 
+        μt-above (idPat ls) = idPat (μt ∷ ls)
+infix 30 _above_
+
+
 open import Data.Product as Σ using (Σ-syntax)
 
 split_before_ : ∀ {l r n} {ls : Vec _ l} {rs : Vec _ r} (x : nGradedFD n ls rs) -> Fin (1 + len x)
@@ -192,7 +204,7 @@ ex' : TangleFD [] []
 ex' = _ <: b+ 0 , d 0
 
 ex2 : TangleFD ([] , gr 0 , gr 1) ([] , gr 1 , gr 0)
-ex2 = _ <: c 0
+ex2 = _ <: c 0 , d 0 , b+ 0
 
 ex3 : TangleFD [] _
 ex3 = _ <: b+ 0 , c 0

@@ -20,6 +20,7 @@ record DependentMonoid+ {a} (X : Set a) (P : X -> Set a) (A : ∀ {x y} -> P x -
         identityˡ  : ∀ {x y} {a : P x} {b : P y} (α : A a b) -> unit a + α ≡ α
         identityʳ : ∀ {x y} {a : P x} {b : P y} (α : A a b) -> α + unit b ≡ α
         assoc : ∀ {x y z w} {a : P x} {b : P y} {c : P z} {d : P w} -> (α : A a b) (β : A b c) (γ : A c d) -> (α + β) + γ ≡ α + (β + γ)
+  infixl 20 _+_
 open DependentMonoid+ {{...}} public
 
 _×_ : ∀ {a} {X : Set a} {P : X -> Set a} {A : ∀ {x y} -> P x -> P y -> Set a}
