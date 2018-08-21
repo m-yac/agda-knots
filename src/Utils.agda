@@ -275,7 +275,13 @@ inv-dec-inc {suc n} < i , eq > = Pointwise-≡⇒≡ ( lem , ≡-≅-irrelevance
           i % suc n                                ≡⟨ eq ⟩
           i                                        ∎
 
+import Data.Nat.Properties as ℕProp 
 
-
+[n+a]%n≢a : ∀ n a → (suc n + a) % suc n ≢ (suc n + a)
+[n+a]%n≢a n a eq = ℕProp.<⇒≱ lem1 (subst (λ z → z ≥ suc n) (sym eq) lem2)
+  where lem1 : (suc n + a) % suc n < suc n
+        lem1 = DivMod.a%n<n (_+_ (suc n) a) n
+        lem2 : suc n + a ≥ suc n
+        lem2 = s≤s (ℕProp.≤-stepsʳ a ℕProp.≤-refl)
 
 
