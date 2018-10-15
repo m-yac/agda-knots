@@ -1,37 +1,43 @@
+{-# OPTIONS --rewriting #-}
 
 module Knot.FrontDiagram where
 
-open import Utils
+open import Knot.Prelude
+import Data.NVec.Properties as nVecProp
+import Data.Product as Σ
 
 
--- The front diagram of an n-graded tangle, represented as a morse word.
-data nGradedFD : ∀ (n : ℕ) {l r} -> Vec (ℤmod n) l -> Vec (ℤmod n) r -> Set where
-  bGr : ∀ {n l r} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) r}
+-- The front diagram of an n-graded tangle, represented as a morse word
+data nGradedFD (n : ℕ) : nVec (ℤmod n) -> nVec (ℤmod n) -> Set where
+  bGr : ∀ {l} {ls : Vec (ℤmod n) l} {r} {rs : Vec (ℤmod n) r}
         -> (i : Fin (1 + r)) -> (μ : ℤmod n) 
-        -> nGradedFD n ls rs
-        -> nGradedFD n ls (insert2 i < μ , dec μ > rs)
-  cGr : ∀ {n l r} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) (2 + r)}
+        -> nGradedFD n < l , ls > < r , rs >
+        -> nGradedFD n < l , ls > < 2 + r , insert2 i < μ , dec μ > rs >
+  cGr : ∀ {l} {ls : Vec (ℤmod n) l} {r} {rs : Vec (ℤmod n) (2 + r)}
         -> (i : Fin (1 + r))
-        -> nGradedFD n ls rs
-        -> nGradedFD n ls (swap2 i rs)
-  dGr : ∀ {n l r} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) r}
+        -> nGradedFD n < l , ls > < 2 + r , rs >
+        -> nGradedFD n < l , ls > < 2 + r , swap2 i rs >
+  dGr : ∀ {l} {ls : Vec (ℤmod n) l} {r} {rs : Vec (ℤmod n) r}
         -> (i : Fin (1 + r)) -> (μ : ℤmod n)
-        -> nGradedFD n ls (insert2 i < μ , dec μ > rs)
-        -> nGradedFD n ls rs
-  idPat : ∀ {n l} (ls : Vec (ℤmod n) l) -> nGradedFD n ls ls
+        -> nGradedFD n < l , ls > < 2 + r , insert2 i < μ , dec μ > rs >
+        -> nGradedFD n < l , ls > < r , rs >
+  idPat : ∀ (ls : nVec (ℤmod n)) -> nGradedFD n ls ls
 
+
+
+-- Useful Synonyms
 
 -- A tangle has arbitrary ending strands
-nGradedTangleFD : ∀ n {l r} -> Vec _ l -> Vec _ r -> Set
+nGradedTangleFD : ∀ n -> nVec _ -> nVec _ -> Set
 nGradedTangleFD n ls rs = nGradedFD n ls rs
 
 -- A pattern has fixed ending strands
-nGradedPatternFD : ∀ n {l} -> Vec _ l -> Set
+nGradedPatternFD : ∀ n -> nVec _ -> Set
 nGradedPatternFD n ls = nGradedFD n ls ls
 
 -- A link (or knot) has no ending strands
 nGradedLinkFD : ∀ n -> Set
-nGradedLinkFD n = nGradedFD n [] []
+nGradedLinkFD n = nGradedFD n < 0 , [] > < 0 , [] >
 
 -- Synonyms for common gradings:
 
@@ -58,12 +64,12 @@ TangleFD = 2-GradedTangleFD
 PatternFD = 2-GradedPatternFD
 LinkFD = 2-GradedLinkFD
 
-_unOri : ∀ (l : ℕ)  -> Vec (ℤmod 1) l
-zero unOri = []
-(suc l) unOri = 0 ∷ (l unOri)
+_unOri : ∀ (l : ℕ)  -> nVec (ℤmod 1)
+zero unOri = < 0 , [] >
+(suc l) unOri = < suc (proj₁ (l unOri)) , 0 ∷ (proj₂ (l unOri)) >
 
 -- A 1-grading adds no information, and thus corresponds to the unoriented case
--- Since ℕ ≅ { Vec (ℤmod 1) n : n ∈ ℕ }, we just index by ℕ
+-- Since ℕ ≅ nVec (ℤmod 1), we just index by ℕ
 UnOriTangleFD = \ l r -> 1-GradedFD (l unOri) (r unOri)
 UnOriPatternFD = \ l -> 1-GradedPatternFD (l unOri)
 UnOriLinkFD = 1-GradedLinkFD
@@ -73,124 +79,148 @@ UnOriLinkFD = 1-GradedLinkFD
 -- Notation
 
 -- A b-event with the grading inferred
-b_ : ∀ {l r n} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) r}
+b_ : ∀ {n} {l} {ls : Vec (ℤmod n) l} {r} {rs : Vec (ℤmod n) r}
      -> (i : Fin (1 + r)) -> {μ : ℤmod n} 
-     -> nGradedFD n ls rs
-     -> nGradedFD n ls (insert2 i < μ , dec μ > rs)
+     -> nGradedFD n < l , ls > < r , rs >
+     -> nGradedFD n < l , ls > < 2 + r , insert2 i < μ , dec μ > rs >
 b_ i {μ} = bGr i μ
+infix 8 b_
 
 -- A b-event with a +oriented strand above a -oriented strand
-b+_ : ∀ {l r} {ls : Vec (ℤmod 2) l} {rs : Vec (ℤmod 2) r}
+b+_ : ∀ {l} {ls : Vec (ℤmod 2) l} {r} {rs : Vec (ℤmod 2) r}
       -> (i : Fin (1 + r))
-      -> 2-GradedFD ls rs
-      -> 2-GradedFD ls (insert2 i < 1 , 0 > rs)
+      -> 2-GradedFD < l , ls > < r , rs >
+      -> 2-GradedFD < l , ls > < 2 + r , insert2 i < 1 , 0 > rs >
 b+_ i = bGr i 1
+infix 8 b+_
 
 -- A b-event with a -oriented strand above a +oriented strand
-b-_ : ∀ {l r} {ls : Vec (ℤmod 2) l} {rs : Vec (ℤmod 2) r}
+b-_ : ∀ {l} {ls : Vec (ℤmod 2) l} {r} {rs : Vec (ℤmod 2) r}
       -> (i : Fin (1 + r))
-      -> 2-GradedFD ls rs
-      -> 2-GradedFD ls (insert2 i < 0 , -1 > rs)
+      -> 2-GradedFD < l , ls > < r , rs >
+      -> 2-GradedFD < l , ls > < 2 + r , insert2 i < 0 , 1 > rs >
 b-_ i = bGr i 0
+infix 8 b-_
 
 -- A c-event
-c_ : ∀ {l r n} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) (2 + r)}
+c_ : ∀ {n} {l} {ls : Vec (ℤmod n) l} {r} {rs : Vec (ℤmod n) (2 + r)}
      -> (i : Fin (1 + r))
-     -> nGradedFD n ls rs
-     -> nGradedFD n ls (swap2 i rs)
+     -> nGradedFD n < l , ls > < 2 + r , rs >
+     -> nGradedFD n < l , ls > < 2 + r , swap2 i rs >
 c_ i = cGr i
+infix 8 c_
 
 -- A d-event with the grading inferred
-d_ : ∀ {l r n} {ls : Vec (ℤmod n) l} {rs : Vec (ℤmod n) r}
+d_ : ∀ {n} {l} {ls : Vec (ℤmod n) l} {r} {rs : Vec (ℤmod n) r}
      -> (i : Fin (1 + r)) -> {μ : ℤmod n}
-     -> nGradedFD n ls (insert2 i < μ , dec μ > rs)
-     -> nGradedFD n ls rs
+     -> nGradedFD n < l , ls > < 2 + r , insert2 i < μ , dec μ > rs >
+     -> nGradedFD n < l , ls > < r , rs >
 d_ i {μ} = dGr i μ
+infix 8 d_
 
 _,_ : ∀ {l} {X Y : Set l} -> X -> (X -> Y) -> Y
 x , f = f x
 infixl 5 _,_
 
-_<:_ : ∀ {l r n} (ls : Vec (ℤmod n) l) {rs : Vec (ℤmod n) r}
-       -> (nGradedFD n ls ls -> nGradedFD n ls rs) -> nGradedFD n ls rs
+_<:_ : ∀ {n} {l} (ls : Vec (ℤmod n) l) {rs : nVec (ℤmod n)}
+       -> (nGradedFD n < l , ls > < l , ls > -> nGradedFD n < l , ls > rs)
+       -> nGradedFD n < l , ls > rs
 _ <: f = f (idPat _)
 infixl 5 _<:_
 
-
 -- Allows for reuse of the odd _,_ notation, see examples below:
 
-gr_ : ∀ {m n} -> ℤmod n -> Vec (ℤmod n) m -> Vec (ℤmod n) (suc m)
-gr_ i xs = xs ∷ʳ i
+gr_ : ∀ {n} -> ℤmod n -> nVec (ℤmod n) -> nVec (ℤmod n)
+gr_ i < n , xs > = < suc n , xs ∷ʳ i >
 
-o-_ : ∀ {m} -> Vec (ℤmod 2) m -> Vec (ℤmod 2) (suc m)
+o-_ : nVec (ℤmod 2) -> nVec (ℤmod 2)
 o-_ = gr 0
 
-o+_ : ∀ {m} -> Vec (ℤmod 2) m -> Vec (ℤmod 2) (suc m)
+o+_ : nVec (ℤmod 2) -> nVec (ℤmod 2)
 o+_ = gr 1
 
 
--- Horizontal composition, the _+_ of tangles
-hcomp : ∀ {n} {l m r} {ls : Vec _ l} {ms : Vec _ m} {rs : Vec _ r}
-        -> nGradedFD n ls ms -> nGradedFD n ms rs -> nGradedFD n ls rs
-hcomp x (bGr i μ y) = bGr i μ (hcomp x y)
-hcomp x (cGr i y) = cGr i (hcomp x y)
-hcomp x (dGr i μ y) = dGr i μ (hcomp x y)
-hcomp x (idPat ls) = x
 
-hcomp-assoc : ∀ {n} {a b c d} {as : Vec _ a} {bs : Vec _ b} {cs : Vec _ c} {ds : Vec _ d}
-              -> (α : nGradedFD n as bs) (β : nGradedFD n bs cs) (γ : nGradedFD n cs ds)
-              -> hcomp (hcomp α β) γ ≡ hcomp α (hcomp β γ)
-hcomp-assoc α β (bGr i μ γ) = cong (bGr i μ) (hcomp-assoc α β γ)
-hcomp-assoc α β (cGr i γ) = cong (cGr i) (hcomp-assoc α β γ)
-hcomp-assoc α β (dGr i μ γ) = cong (dGr i μ) (hcomp-assoc α β γ)
-hcomp-assoc α β (idPat ls) = refl
+-- Operations
 
-instance
-  FD-Dep+ : ∀ {n} -> DependentMonoid+ ℕ (Vec (ℤmod n)) (nGradedFD n)
-  FD-Dep+ = record { _+_ = hcomp; unit = idPat; identityˡ = hcomp-idˡ; identityʳ = λ _ → refl; assoc = hcomp-assoc }
-    where hcomp-idˡ : ∀ {n} {l r} {ls : Vec _ l} {rs : Vec _ r} (x : nGradedFD n ls rs)
-                      -> hcomp (idPat ls) x ≡ x
-          hcomp-idˡ (bGr i μ x) = cong (bGr i μ) (hcomp-idˡ x)
-          hcomp-idˡ (cGr i x) = cong (cGr i) (hcomp-idˡ x)
-          hcomp-idˡ (dGr i μ x) = cong (dGr i μ) (hcomp-idˡ x)
-          hcomp-idˡ (idPat ls) = refl
-
-
--- The number of events in a front diagram
-len : ∀ {l r n} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> ℕ
-len (bGr _ _ x) = suc (len x)
-len (cGr _ x) = suc (len x)
-len (dGr _ _ x) = suc (len x)
-len (idPat _) = zero
-
-len-hcomp : ∀ {n} {l m r} {ls : Vec _ l} {ms : Vec _ m} {rs : Vec _ r}
-            -> (x : nGradedFD n ls ms) (y : nGradedFD n ms rs)
-            -> len (x + y) ≡ len y + len x
-len-hcomp x (bGr i μ y) = cong suc (len-hcomp x y)
-len-hcomp x (cGr i y) = cong suc (len-hcomp x y)
-len-hcomp x (dGr i μ y) = cong suc (len-hcomp x y)
-len-hcomp x (idPat ls) = refl
-
+-- Concatenation/composition of tangles
+_∙_ : ∀ {n} {ls ms rs} -> nGradedFD n ls ms -> nGradedFD n ms rs -> nGradedFD n ls rs
+Λ₁ ∙ (bGr i μ Λ₂) = bGr i μ (Λ₁ ∙ Λ₂)
+Λ₁ ∙ (cGr i   Λ₂) = cGr i   (Λ₁ ∙ Λ₂)
+Λ₁ ∙ (dGr i μ Λ₂) = dGr i μ (Λ₁ ∙ Λ₂)
+Λ₁ ∙ (idPat ls ) = Λ₁
+infixr 5 _∙_
 
 -- Adding a strand with a given grading above a front diagram
-_∷*_ : ∀ {l r n} {ls : Vec _ l} {rs : Vec _ r} (μt : ℤmod n)
-       -> nGradedFD _ ls rs -> nGradedFD _ (μt ∷ ls) (μt ∷ rs)
-μt ∷* (bGr i μ x) = bGr (suc i) μ (μt ∷* x)
-μt ∷* (cGr i   x) = cGr (suc i)   (μt ∷* x)
-μt ∷* (dGr i μ x) = dGr (suc i) μ (μt ∷* x)
-μt ∷* (idPat ls) = idPat (μt ∷ ls)
+_◅₁_ : ∀ {n} (μt : ℤmod n) {ls rs} -> nGradedFD _ ls rs -> nGradedFD _ (μt ∷* ls) (μt ∷* rs)
+μt ◅₁ (bGr i μ Λ) = bGr (suc i) μ (μt ◅₁ Λ)
+μt ◅₁ (cGr i   Λ) = cGr (suc i)   (μt ◅₁ Λ)
+μt ◅₁ (dGr i μ Λ) = dGr (suc i) μ (μt ◅₁ Λ)
+μt ◅₁ (idPat ls) = idPat (μt ∷* ls)
 
 -- Adding a arbitrary number of strands above a front diagram
-_above_ : ∀ {l r n} {ls : Vec _ l} {rs : Vec _ r} {t} (ts : Vec _ t)
-          -> nGradedFD n ls rs -> nGradedFD n (ts ++ ls) (ts ++ rs)
-[] above x = x
-(μt ∷ ts) above x = μt ∷* (ts above x)
-infix 30 _above_
+_◅_ : ∀ {n} (ts : nVec _) {ls rs} -> nGradedFD n ls rs -> nGradedFD n (ts ++* ls) (ts ++* rs)
+[]* ◅ Λ = Λ
+(μt ∷*< n , μs >) ◅ Λ = μt ◅₁ (< n , μs > ◅ Λ)
+infixr 6 _◅_
+
+-- (Note: The following two definitions only work because of rewrite magic! See Knot.Prelude...)
+
+-- Adding a strand with a given grading below a front diagram
+_▻₁_ : ∀ {n} {ls rs} -> nGradedFD _ ls rs -> (μt : ℤmod n) -> nGradedFD _ (ls ∷ʳ* μt) (rs ∷ʳ* μt)
+(bGr {rs = rs} i μ Λ) ▻₁ μt = bGr (at i) μ (Λ ▻₁ μt)
+(cGr {rs = rs} i   Λ) ▻₁ μt = cGr (at i)   (Λ ▻₁ μt)
+(dGr {rs = rs} i μ Λ) ▻₁ μt = dGr (at i) μ (Λ ▻₁ μt)
+(idPat ls) ▻₁ μt = idPat (ls ∷ʳ* μt)
+
+-- Adding a arbitrary number of strands below a front diagram
+_▻_ : ∀ {n} {ls rs} -> nGradedFD n ls rs -> (ts : nVec _) -> nGradedFD n (ls ++* ts) (rs ++* ts)
+Λ ▻ []* = Λ
+Λ ▻ (μt ∷*< n , μs >) = (Λ ▻₁ μt) ▻ < n , μs >
+infixl 7 _▻_
+
+
+
+-- Testing/Examples:
+
+ex : TangleFD []* []*
+ex = dGr 0 _ (bGr 0 1 (idPat []*))
+
+ex' : TangleFD []* []*
+ex' = _ <: b+ 0 , d 0
+
+ex2 : TangleFD ([]* , gr 0 , gr 1) ([]* , gr 1 , gr 0)
+ex2 = _ <: c 0 , d 0 , b+ 0
+
+ex3 : TangleFD []* _
+ex3 = _ <: b+ 0 , c 0
+
+ex4 : UnOriTangleFD 2 2
+ex4 = _ <: c 0
+
+unknot : LinkFD
+unknot = _ <: b+ 0 , d 0
+
+3-1a : LinkFD
+3-1a = _ <: b+ 0 , b+ 1 , c 0 , c 2 , c 0 , d 1 , d 0
+
+3-1b : LinkFD
+3-1b = _ <: b+ 0 , b- 0 , c 1 , c 1 , c 1 , d 0 , d 0
+
+m-3-1a : LinkFD
+m-3-1a = _ <: b+ 0 , b- 1 , b- 3 , c 0 , c 2 , c 4 , d 3 , d 1 , d 0
+
 
 
 -- Is this no longer necessary?
 
 -- open import Data.Product as Σ using (Σ-syntax)
+
+-- len : ∀ {l r n} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> ℕ
+-- len (bGr _ _ x) = suc (len x)
+-- len (cGr _ x) = suc (len x)
+-- len (dGr _ _ x) = suc (len x)
+-- len (idPat _) = zero
 
 -- split_before_ : ∀ {l r n} {ls : Vec _ l} {rs : Vec _ r} (x : nGradedFD n ls rs) -> Fin (1 + len x)
 --                 -> Σ[ m ∈ ℕ ] (Σ[ ms ∈ Vec _ m ] ((nGradedFD n ls ms) Σ.× (nGradedFD n ms rs)))
@@ -225,35 +255,3 @@ infix 30 _above_
 -- split_after_ : ∀ {l r n} {ls : Vec _ l} {rs : Vec _ r} (x : nGradedFD n ls rs) -> Fin (1 + len x)
 --                -> Σ[ m ∈ ℕ ] (Σ[ ms ∈ Vec _ m ] ((nGradedFD n ls ms) Σ.× (nGradedFD n ms rs)))
 -- split x after k = split x before (neg k)
-
-
--- Testing/Examples:
-
-ex : TangleFD [] []
-ex = dGr 0 _ (bGr 0 1 (idPat []))
-
-ex' : TangleFD [] []
-ex' = _ <: b+ 0 , d 0
-
-ex2 : TangleFD ([] , gr 0 , gr 1) ([] , gr 1 , gr 0)
-ex2 = _ <: c 0 , d 0 , b+ 0
-
-ex3 : TangleFD [] _
-ex3 = _ <: b+ 0 , c 0
-
-ex4 : UnOriTangleFD 2 2
-ex4 = _ <: c 0
-
-unknot : LinkFD
-unknot = [] <: b+ 0 , d 0
-
-3-1a : LinkFD
-3-1a = [] <: b+ 0 , b+ 1 , c 0 , c 2 , c 0 , d 1 , d 0
-
-3-1b : LinkFD
-3-1b = [] <: b+ 0 , b- 0 , c 1 , c 1 , c 1 , d 0 , d 0
-
-m-3-1a : LinkFD
-m-3-1a = [] <: b+ 0 , b- 1 , b- 3 , c 0 , c 2 , c 4 , d 3 , d 1 , d 0
-
-

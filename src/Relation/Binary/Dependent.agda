@@ -84,7 +84,16 @@ module Heterogenous {ℓa ℓb ℓ₁ ℓ₂} (A : Set ℓa) (_∼_ : Rel A ℓ�
                -> x ≈ y -> y ≈ z -> x ≈ z
     trans-on ( p₁ , p₂ , pf ) ( p₁' , p₂' , pf' ) = wrap (Homog.trans-on p₁ p₁' p₂ p₂' pf pf')
 
+    import Relation.Binary.PropositionalEquality as Eq
+
+    ≡-to-≈ : ∀ {a b} {x : B a b} {y : B a b} -> x Eq.≡ y -> x ≈ y
+    ≡-to-≈ Eq.refl = refl-on
+
   -- The notion of an operation being preserved by ≈
+  
+  Congruent₀-on : (e : 2-Op₀ A B) -> Set _
+  Congruent₀-on e = ∀ (a a') -> a ∼ a' -> e a ≈ e a'
+
   Congruent₂-on : (∙ : 2-Op₂ A B) -> Set _
   Congruent₂-on _∙_ = ∀ {a a' b b' c c'} {x : B a b} {y : B a' b'} {u : B b c} {v : B b' c'}
                       -> x ≈ y -> u ≈ v -> (x ∙ u) ≈ (y ∙ v)
@@ -120,6 +129,19 @@ instance
                       -> (∼ on-≡) x y p₁ p₂ -> (∼ on-≡) y z p₁' p₂'
                       -> (∼ on-≡) x z (Eq.trans p₁ p₁') (Eq.trans p₂ p₂')
           lem-trans {a} {b} Eq.refl Eq.refl Eq.refl Eq.refl = trans {{ptwise a b}}
+
+cong-on-≡ : ∀ {ℓa ℓb ℓ} {A : Set ℓa} {B : Rel A ℓb} {_∼_ :  ∀ {a b} -> Rel (B a b) ℓ}
+            -> {f₁ f₂ : A -> A} (f : ∀ {a b} -> B a b -> B (f₁ a) (f₂ b))
+            -> (∀ {a b} {x y : B a b} -> x ∼ y -> f x ∼ f y)
+            -> ∀ {a b c d} {x : B a b} {y : B c d}
+            -> Heterogenous._≈_ A (_≡_ {A = A}) B (_∼_ on-≡) x y
+            -> Heterogenous._≈_ A (_≡_ {A = A}) B (_∼_ on-≡) (f x) (f y)
+cong-on-≡ f p (Eq.refl , Eq.refl , eq) = Eq.refl , Eq.refl , p eq
+
+cong₀-on-≡ : ∀ {ℓa ℓb ℓ} {A : Set ℓa} {B : Rel A ℓb} {_∼_ :  ∀ {a b} -> Rel (B a b) ℓ} (e : 2-Op₀ A B)
+             -> (∀ (a : A) -> e a ∼ e a)
+             -> Heterogenous.Congruent₀-on A (_≡_ {A = A}) B (_∼_ on-≡) e
+cong₀-on-≡ _∙_ p a .a Eq.refl = Eq.refl , Eq.refl , p a
 
 cong₂-on-≡ : ∀ {ℓa ℓb ℓ} {A : Set ℓa} {B : Rel A ℓb} {_∼_ :  ∀ {a b} -> Rel (B a b) ℓ} (_∙_ : 2-Op₂ A B)
              -> (∀ {a b c} {x y : B a b} {u v : B b c}

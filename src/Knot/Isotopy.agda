@@ -1,14 +1,16 @@
+{-# OPTIONS --rewriting #-}
 
 module Knot.Isotopy where
 
-open import Utils
+open import Knot.Prelude
 open import Knot.FrontDiagram
+open import Knot.FrontDiagram.Properties
+open import Category.Monoidal.Closure
 
-open import Data.Product as Σ using (Σ-syntax)
 open import Relation.Binary.Closure.Symmetric as SymClosure using (SymClosure)
-open import Relation.Binary.Closure.ReflexiveTransitive as ReflTransClosure using (ε; _◅_) renaming (Star to ReflTransClosure)
-open import Data.Sum as Sum using (_⊎_) renaming (inj₁ to fwd; inj₂ to bwd)
-
+open import Relation.Binary.Closure.ReflexiveTransitive as ReflTransClosure using (ε) renaming (Star to ReflTransClosure; _◅_ to _∷ᵗ_; _◅◅_ to _++ᵗ_)
+open import Relation.Binary
+open import Data.Sum as Sum using (_⊎_; inj₁; inj₂)
 
 
 data IsoType : ℕ -> Set where
@@ -21,237 +23,219 @@ data IsoType : ℕ -> Set where
 
 
 -- Generators of the Legendrian or Smooth Isotopy relation
-data _Gen : ∀ {n} (ty : IsoType n) {l r} {ls : Vec _ l} {rs : Vec _ r} (_ _ : nGradedFD n ls rs) -> Set where
+data _Gen : ∀ {n} (ty : IsoType n) {ls rs} (_ _ : nGradedFD n ls rs) -> Set where
 
   -- Reidemeister Type 1 moves, both [a]bove and [b]elow
   
-  R1-a : ∀ {n ty} {μ : ℤmod n} {l} {μls : Vec _ l} -> let ls = (dec μ) ∷ μls in
-         (ty Gen) (idPat ls) (ls <: bGr 0 μ , cGr 1 , dGr 0 μ)
+  R1-a : ∀ {n ty} {μ : ℤmod n} -> let ls = (dec μ) ∷ [] in
+         (ty Gen) (idPat < _ , ls >) (ls <: bGr 0 μ , cGr 1 , dGr 0 μ)
 
-  R1-b : ∀ {n ty} {μ : ℤmod n} {l} {μls : Vec _ l} -> let ls = μ ∷ μls in
-         (ty Gen) (idPat ls) (ls <: bGr 1 μ , cGr 0 , dGr 1 μ)
+  R1-b : ∀ {n ty} {μ : ℤmod n} -> let ls = μ ∷ [] in
+         (ty Gen) (idPat < _ , ls >) (ls <: bGr 1 μ , cGr 0 , dGr 1 μ)
 
-  -- Reidemeister Type 2 moves, with [d] and [d] cusps both [a]bove and [b]elow
+  -- Reidemeister Type 2 moves, with [b] and [d] cusps both [a]bove and [b]elow
   
-  R2-b-a : ∀ {n ty} {μ μl : ℤmod n} {l} {μls : Vec _ l} -> let ls = μl ∷ μls in
+  R2-b-a : ∀ {n ty} {μ μl : ℤmod n} -> let ls = μl ∷ [] in
            (ty Gen) (ls <: bGr 0 μ) (ls <: bGr 1 μ , cGr 0 , cGr 1)
 
-  R2-b-b : ∀ {n ty} {μ μl : ℤmod n} {l} {μls : Vec _ l} -> let ls = μl ∷ μls in
+  R2-b-b : ∀ {n ty} {μ μl : ℤmod n} -> let ls = μl ∷ [] in
            (ty Gen) (ls <: bGr 1 μ) (ls <: bGr 0 μ , cGr 1 , cGr 0)
 
-  R2-d-a : ∀ {n ty} {μ μr : ℤmod n} {l} {μls : Vec _ l} -> let ls = insert2 0 < μ , dec μ > (μr ∷ μls) in
+  R2-d-a : ∀ {n ty} {μ μr : ℤmod n} -> let ls = insert2 0 < μ , dec μ > (μr ∷ []) in
            (ty Gen) (ls <: dGr 0 μ) (ls <: cGr 1 , cGr 0 , dGr 1 μ)
 
-  R2-d-b : ∀ {n ty} {μ μr : ℤmod n} {l} {μls : Vec _ l} -> let ls = insert2 1 < μ , dec μ > (μr ∷ μls) in
+  R2-d-b : ∀ {n ty} {μ μr : ℤmod n} -> let ls = insert2 1 < μ , dec μ > (μr ∷ []) in
            (ty Gen) (ls <: dGr 1 μ) (ls <: cGr 0 , cGr 1 , dGr 0 μ)
 
   -- Reidemeister Type 3 move
   
-  R3 : ∀ {n ty} {μl₀ μl₁ μl₂ : ℤmod n} {l} {μls : Vec _ l} -> let ls = μl₀ ∷ μl₁ ∷ μl₂ ∷ μls in
+  R3 : ∀ {n ty} {μl₀ μl₁ μl₂ : ℤmod n} -> let ls = μl₀ ∷ μl₁ ∷ μl₂ ∷ [] in
        (ty Gen) (ls <: cGr 0 , cGr 1 , cGr 0) (ls <: cGr 1 , cGr 0 , cGr 1)
 
   -- Reidemeister 0 moves - all permissible exchanges between b's, c's, and d's
   
-  R0-b-b : ∀ {n ty} {μ₁ μ₂ : ℤmod n} {l} {ls : Vec _ l} (i : Fin (1 + l)) ->
-           (ty Gen) (ls <: bGr 0 μ₁ , bGr (suc (suc i)) μ₂) (ls <: bGr i μ₂ , bGr 0 μ₁)
+  R0-b-b : ∀ {n ty} {μ₁ μ₂ : ℤmod n} (k : ℕ) {ls : Vec _ k} ->
+           (ty Gen) (ls <: bGr 0 μ₁ , bGr (fromℕ (2 + k)) μ₂) (ls <: bGr (fromℕ k) μ₂ , bGr 0 μ₁)
 
-  R0-b-c : ∀ {n ty} {μ μl₀ μl₁ : ℤmod n} {l} {ls : Vec _ (2 + l)} (i : Fin (1 + l)) ->
-           (ty Gen) (ls <: bGr 0 μ , cGr (suc (suc i))) (ls <: cGr i , bGr 0 μ)
+  R0-b-c : ∀ {n ty} {μ μl₀ μl₁ : ℤmod n} (k : ℕ) {ls : Vec _ (2 + k)} ->
+           (ty Gen) (ls <: bGr 0 μ , cGr (fromℕ (2 + k))) (ls <: cGr (fromℕ k) , bGr 0 μ)
 
-  R0-b-d : ∀ {n ty} {μ₁ μ₂ : ℤmod n} {l} {μls : Vec _ l} (i : Fin (1 + l)) -> let ls = insert2 i < μ₂ , dec μ₂ > μls in
-           (ty Gen) (ls <: bGr 0 μ₁ , dGr (suc (suc i)) μ₂) (ls <: dGr i μ₂ , bGr 0 μ₁)
+  R0-b-d : ∀ {n ty} {μ₁ μ₂ : ℤmod n} (k : ℕ) {μls : Vec _ k} -> let ls = insert2 (fromℕ k) < μ₂ , dec μ₂ > μls in
+           (ty Gen) (ls <: bGr 0 μ₁ , dGr (fromℕ (2 + k)) μ₂) (ls <: dGr (fromℕ k) μ₂ , bGr 0 μ₁)
 
-  R0-c-b : ∀ {n ty} {μ μl₀ μl₁ : ℤmod n} {l} {μls : Vec _ l} (i : Fin (1 + l)) -> let ls = μl₀ ∷ μl₁ ∷ μls in
-           (ty Gen) (ls <: cGr 0 , bGr (suc (suc i)) μ) (ls <: bGr (suc (suc i)) μ , cGr 0)
+  R0-c-b : ∀ {n ty} {μ μl₀ μl₁ : ℤmod n} (k : ℕ) {μls : Vec _ k} -> let ls = μl₀ ∷ μl₁ ∷ μls in
+           (ty Gen) (ls <: cGr 0 , bGr (fromℕ (2 + k)) μ) (ls <: bGr (fromℕ (2 + k)) μ , cGr 0)
 
-  R0-c-c : ∀ {n ty} {μl₀ μl₁ : ℤmod n} {l} {μls : Vec _ (2 + l)} (i : Fin (1 + l)) -> let ls = μl₀ ∷ μl₁ ∷ μls in
-           (ty Gen) (ls <: cGr 0 , cGr (suc (suc i))) (ls <: cGr (suc (suc i)) , cGr 0)
+  R0-c-c : ∀ {n ty} {μl₀ μl₁ : ℤmod n} (k : ℕ) {μls : Vec _ (2 + k)} -> let ls = μl₀ ∷ μl₁ ∷ μls in
+           (ty Gen) (ls <: cGr 0 , cGr (fromℕ (2 + k))) (ls <: cGr (fromℕ (2 + k)) , cGr 0)
 
-  R0-c-d : ∀ {n ty} {μ μl₀ μl₁ : ℤmod n} {l} {μls : Vec _ l} (i : Fin (1 + l)) -> let ls = μl₀ ∷ μl₁ ∷ insert2 i < μ , dec μ > μls in
-           (ty Gen) (ls <: cGr 0 , dGr (suc (suc i)) μ) (ls <: dGr (suc (suc i)) μ , cGr {rs = μl₀ ∷ μl₁ ∷ μls} 0) -- the type checker just needed some help!
+  R0-c-d : ∀ {n ty} {μ μl₀ μl₁ : ℤmod n} (k : ℕ) {μls : Vec _ k} -> let ls = μl₀ ∷ μl₁ ∷ insert2 (fromℕ k) < μ , dec μ > μls in
+           (ty Gen) (ls <: cGr 0 , dGr (fromℕ (2 + k)) μ) (ls <: dGr (fromℕ (2 + k)) μ , cGr {rs = μl₀ ∷ μl₁ ∷ μls} 0)
+                                                                                       -- ^ the type checker just needed some help!
+  R0-d-b : ∀ {n ty} {μ₁ μ₂ : ℤmod n} (k : ℕ) {μls : Vec _ k} -> let ls = insert2 0 < μ₁ , dec μ₁ > μls in
+           (ty Gen) (ls <: dGr 0 μ₁ , bGr (fromℕ k) μ₂) (ls <: bGr (fromℕ (2 + k)) μ₂ , dGr 0 μ₁)
 
-  R0-d-b : ∀ {n ty} {μ₁ μ₂ : ℤmod n} {l} {μls : Vec _ l} (i : Fin (1 + l)) -> let ls = insert2 0 < μ₁ , dec μ₁ > μls in
-           (ty Gen) (ls <: dGr 0 μ₁ , bGr i μ₂) (ls <: bGr (suc (suc i)) μ₂ , dGr 0 μ₁)
+  R0-d-c : ∀ {n ty} {μ : ℤmod n} (k : ℕ) {μls : Vec _ (2 + k)} -> let ls = insert2 0 < μ , dec μ > μls in
+           (ty Gen) (ls <: dGr 0 μ , cGr (fromℕ k)) (ls <: cGr (fromℕ (2 + k)) , dGr 0 μ)
 
-  R0-d-c : ∀ {n ty} {μ : ℤmod n} {l} {μls : Vec _ (2 + l)} (i : Fin (1 + l)) -> let ls = insert2 0 < μ , dec μ > μls in
-           (ty Gen) (ls <: dGr 0 μ , cGr i) (ls <: cGr (suc (suc i)) , dGr 0 μ)
-
-  R0-d-d : ∀ {n ty} {μ₁ μ₂ : ℤmod n} {l} {μls : Vec _ l} (i : Fin (1 + l)) -> let ls = insert2 0 < μ₁ , dec μ₁ > (insert2 i < μ₂ , dec μ₂ > μls) in
-           (ty Gen) (ls <: dGr 0 μ₁ , dGr i μ₂) (ls <: dGr (suc (suc i)) μ₂ , dGr 0 μ₁)
+  R0-d-d : ∀ {n ty} {μ₁ μ₂ : ℤmod n} (k : ℕ) {μls : Vec _ k} -> let ls = insert2 0 < μ₁ , dec μ₁ > (insert2 (fromℕ k) < μ₂ , dec μ₂ > μls) in
+           (ty Gen) (ls <: dGr 0 μ₁ , dGr (fromℕ k) μ₂) (ls <: dGr (fromℕ (2 + k)) μ₂ , dGr 0 μ₁)
 
   -- Oriented (Smooth) Stabilizations, both [a]bove and [b]elow
   
-  o-Stb-a : ∀ {l} {μls : Vec (ℤmod 2) l} -> let ls = 0 ∷ μls in
-            (OriSmth Gen) (idPat ls) (ls <: bGr 0 0 , dGr 1 1)
+  o-Stb-a : let ls = 0 ∷ [] in
+            (OriSmth Gen) (idPat < _ , ls >) (ls <: bGr 0 0 , dGr 1 1)
             
-  o+Stb-a : ∀ {l} {μls : Vec (ℤmod 2) l} -> let ls = 1 ∷ μls in
-            (OriSmth Gen) (idPat ls) (ls <: bGr 0 1 , dGr 1 0)
+  o+Stb-a : let ls = 1 ∷ [] in
+            (OriSmth Gen) (idPat < _ , ls >) (ls <: bGr 0 1 , dGr 1 0)
             
-  o-Stb-b : ∀ {l} {μls : Vec (ℤmod 2) l} -> let ls = 0 ∷ μls in
-            (OriSmth Gen) (idPat ls) (ls <: bGr 1 1 , dGr 0 0)
+  o-Stb-b : let ls = 0 ∷ [] in
+            (OriSmth Gen) (idPat < _ , ls >) (ls <: bGr 1 1 , dGr 0 0)
             
-  o+Stb-b : ∀ {l} {μls : Vec (ℤmod 2) l} -> let ls = 1 ∷ μls in
-            (OriSmth Gen) (idPat ls) (ls <: bGr 1 0 , dGr 0 1)
+  o+Stb-b : let ls = 1 ∷ [] in
+            (OriSmth Gen) (idPat < _ , ls >) (ls <: bGr 1 0 , dGr 0 1)
 
   -- Unoriented (Smooth) Stabilizations, both [a]bove and [b]elow
   
-  uoStb-a : ∀ {l} {μls : Vec (ℤmod 1) l} -> let ls = 0 ∷ μls in
-            (UnOriSmth Gen) (idPat ls) (ls <: bGr 0 0 , dGr 1 0)
+  uoStb-a : let ls = 0 ∷ [] in
+            (UnOriSmth Gen) (idPat < _ , ls >) (ls <: bGr 0 0 , dGr 1 0)
             
-  uoStb-b : ∀ {l} {μls : Vec (ℤmod 1) l} -> let ls = 0 ∷ μls in
-            (UnOriSmth Gen) (idPat ls) (ls <: bGr 1 0 , dGr 0 0)
+  uoStb-b : let ls = 0 ∷ [] in
+            (UnOriSmth Gen) (idPat < _ , ls >) (ls <: bGr 1 0 , dGr 0 0)
 
 
-infix 1 _~_
-
--- The core of the Legendrian/Smooth Isotopy relation: arbitrary embeddings of the above
---  generators, or their symmetric counterparts, in larger tangles
-data _~_ {n ty} : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} (_ _ : nGradedFD n ls rs) -> Set where
-  _below_btwn_,_ : ∀ {ml mr} {mls : Vec _ ml} {mrs : Vec _ mr} {Λ₁ Λ₂ : nGradedFD n mls mrs}
-  {-        do: -} -> SymClosure (ty Gen) Λ₁ Λ₂
-  {-     below: -} -> ∀ {t} (ts : Vec (ℤmod n) t)
-  {-   between: -} -> ∀ {l} {ls : Vec _ l} (Λl : nGradedFD n ls (ts ++ mls))
-  {-     (and:) -} -> ∀ {r} {rs : Vec _ r} (Λr : nGradedFD n (ts ++ mrs) rs)
-                   -> Λl + ts above Λ₁ + Λr  ~  Λl + ts above Λ₂ + Λr
-
--- The actual Legendrian/Smooth Isotopy relation: the reflexive/transitive closure of ~
-_Iso : ∀ {n} (ty : IsoType n) {l r} {ls : Vec _ l} {rs : Vec _ r} (_ _ : nGradedFD n ls rs) -> Set
-_Iso {n} ty = ReflTransClosure (_~_ {n} {ty})
+-- The Legendrian/Smooth Isotopy relation: the reflexive/transitive closure
+--  of the monoidal closure of the symmetric closure of the above set of generators (phew!)
+_Iso : ∀ {n} (ty : IsoType n) {ls rs} (_ _ : nGradedFD n ls rs) -> Set
+_Iso ty = ReflTransClosure (MonoidalClosure (SymClosure (ty Gen)))
 
 
-open import Relation.Binary.Core as Bin using (Rel; _⇒_; _=[_]⇒_; IsEquivalence)
-open import Function using (_∘_; _on_)
+-- We can embed isotopy arbitrarily in larger tangles
+
+_∙ᵗˡ_ : ∀ {n} {ty : IsoType n} {ls ms₁ ms₂} {Λ₁ Λ₂ : nGradedFD n ms₁ ms₂}
+        -> (Λ : nGradedFD n ls ms₁) -> (ty Iso) Λ₁ Λ₂ -> (ty Iso) (Λ ∙ Λ₁) (Λ ∙ Λ₂)
+Λ ∙ᵗˡ ε = ε
+Λ ∙ᵗˡ (emb {ms₁'} {ms₂'} {Λ₁'} {Λ₂'} p as bs Λl Λr ∷ᵗ ps) = p' ∷ᵗ (Λ ∙ᵗˡ ps)
+  where eq : ∀ (Λᵢ : nGradedFD _ ms₁' ms₂') -> Λ ∙ Λl ∙ as ◅ Λᵢ ▻ bs ∙ Λr ≡ (Λ ∙ Λl) ∙ as ◅ Λᵢ ▻ bs ∙ Λr
+        eq Λᵢ = sym (∙-assoc Λ Λl (as ◅ Λᵢ ▻ bs ∙ Λr))
+        p' : MonoidalClosure _ (Λ ∙ Λl ∙ as ◅ Λ₁' ▻ bs ∙ Λr) (Λ ∙ Λl ∙ as ◅ Λ₂' ▻ bs ∙ Λr)
+        p' rewrite eq Λ₁' | eq Λ₂' = emb p as bs (Λ ∙ Λl) Λr
+infixr 5 _∙ᵗˡ_
+
+_∙ᵗʳ_ : ∀ {n} {ty : IsoType n} {rs ms₁ ms₂} {Λ₁ Λ₂ : nGradedFD n ms₁ ms₂}
+        -> (ty Iso) Λ₁ Λ₂ -> (Λ : nGradedFD n ms₂ rs) -> (ty Iso) (Λ₁ ∙ Λ) (Λ₂ ∙ Λ)
+ε ∙ᵗʳ Λ = ε
+(emb {ms₁'} {ms₂'} {Λ₁'} {Λ₂'} p as bs Λl Λr ∷ᵗ ps) ∙ᵗʳ Λ = p' ∷ᵗ (ps  ∙ᵗʳ Λ)
+  where eq : ∀ (Λᵢ : nGradedFD _ ms₁' ms₂') -> (Λl ∙ as ◅ Λᵢ ▻ bs ∙ Λr) ∙ Λ ≡ Λl ∙ as ◅ Λᵢ ▻ bs ∙ (Λr ∙ Λ)
+        eq Λᵢ = trans (trans (cong (_∙ Λ) (sym (∙-assoc Λl (as ◅ Λᵢ ▻ bs) Λr)))
+                             (∙-assoc (Λl ∙ as ◅ Λᵢ ▻ bs) Λr Λ))
+                             (∙-assoc Λl (as ◅ Λᵢ ▻ bs) (Λr ∙ Λ))
+        p' : MonoidalClosure _ ((Λl ∙ as ◅ Λ₁' ▻ bs ∙ Λr) ∙ Λ) ((Λl ∙ as ◅ Λ₂' ▻ bs ∙ Λr) ∙ Λ)
+        p' rewrite eq Λ₁' | eq Λ₂' = emb p as bs Λl (Λr ∙ Λ)
+infixr 5 _∙ᵗʳ_
+
+_◅ᵗ_ : ∀ {n} {ty : IsoType n} {ms₁ ms₂} {Λ₁ Λ₂ : nGradedFD n ms₁ ms₂}
+       -> (xs : nVec _) -> (ty Iso) Λ₁ Λ₂ -> (ty Iso) (xs ◅ Λ₁) (xs ◅ Λ₂)
+xs ◅ᵗ ε = ε
+xs ◅ᵗ (emb {ms₁'} {ms₂'} {Λ₁'} {Λ₂'} p as bs Λl Λr ∷ᵗ ps) = p' ∷ᵗ (xs ◅ᵗ ps)
+  where eq : ∀ (Λᵢ : nGradedFD _ ms₁' ms₂') -> xs ◅ (Λl ∙ as ◅ Λᵢ ▻ bs ∙ Λr) ≡ (xs ◅ Λl) ∙ (xs ++* as) ◅ Λᵢ ▻ bs ∙ (xs ◅ Λr)
+        eq Λᵢ =  trans (trans (◅-distrib xs Λl (as ◅ Λᵢ ▻ bs ∙ Λr))
+                              (cong (xs ◅ Λl ∙_) (◅-distrib xs (as ◅ Λᵢ ▻ bs) Λr)))
+                              (cong (λ z → xs ◅ Λl ∙ z ∙ xs ◅ Λr) (sym (++*-acts-on-◅ xs as (Λᵢ ▻ bs))))
+        p' : MonoidalClosure _ (xs ◅ (Λl ∙ as ◅ Λ₁' ▻ bs ∙ Λr)) (xs ◅ (Λl ∙ as ◅ Λ₂' ▻ bs ∙ Λr))
+        p' rewrite eq Λ₁' | eq Λ₂' = emb p (xs ++* as) bs (xs ◅ Λl) (xs ◅ Λr)
+infixr 6 _◅ᵗ_
+
+_▻ᵗ_ : ∀ {n} {ty : IsoType n} {ms₁ ms₂} {Λ₁ Λ₂ : nGradedFD n ms₁ ms₂}
+        -> (ty Iso) Λ₁ Λ₂ -> (xs : nVec _) -> (ty Iso) (Λ₁ ▻ xs) (Λ₂ ▻ xs)
+ε ▻ᵗ xs = ε
+(emb {ms₁'} {ms₂'} {Λ₁'} {Λ₂'} p as bs Λl Λr ∷ᵗ ps) ▻ᵗ xs = p' ∷ᵗ (ps  ▻ᵗ xs)
+  where eq : ∀ (Λᵢ : nGradedFD _ ms₁' ms₂') -> (Λl ∙ as ◅ Λᵢ ▻ bs ∙ Λr) ▻ xs ≡ (Λl ▻ xs) ∙ as ◅ Λᵢ ▻ (bs ++* xs) ∙ Λr ▻ xs
+        eq Λᵢ =  trans (▻-distrib Λl (as ◅ Λᵢ ▻ bs ∙ Λr) xs)
+                (trans (cong (Λl ▻ xs ∙_) (▻-distrib (as ◅ Λᵢ ▻ bs) Λr xs))
+                (trans (cong (λ z → Λl ▻ xs ∙ z ∙ Λr ▻ xs) (sym (◅-▻-assoc-lemma as Λᵢ bs xs)))
+                (trans (cong (λ z → Λl ▻ xs ∙ z ∙ Λr ▻ xs) (++*-acts-on-▻ (as ◅ Λᵢ) bs xs))
+                       (cong (λ z → Λl ▻ xs ∙ z ∙ Λr ▻ xs) (◅-▻-assoc as Λᵢ (bs ++* xs))))))
+        p' : MonoidalClosure _ ((Λl ∙ as ◅ Λ₁' ▻ bs ∙ Λr) ▻ xs) ((Λl ∙ as ◅ Λ₂' ▻ bs ∙ Λr) ▻ xs)
+        p' rewrite eq Λ₁' | eq Λ₂' = emb p as (bs ++* xs) (Λl ▻ xs) (Λr ▻ xs)
+infixl 7 _▻ᵗ_
+
+embᵗ : ∀ {n} {ty : IsoType n} {ms₁ ms₂} {Λ₁ Λ₂ : nGradedFD n ms₁ ms₂} -> (ty Iso) Λ₁ Λ₂
+       -> ∀ (as bs : nVec _)
+       -> ∀ {l} (Λl : nGradedFD n l (as ++* ms₁ ++* bs)  )
+            {r} (Λr : nGradedFD n   (as ++* ms₂ ++* bs) r)
+       -> (ty Iso) (Λl ∙ as ◅ Λ₁ ▻ bs ∙ Λr) (Λl ∙ as ◅ Λ₂ ▻ bs ∙ Λr)
+embᵗ p as bs Λl Λr = Λl ∙ᵗˡ as ◅ᵗ p ▻ᵗ bs ∙ᵗʳ Λr
 
 
-_Invariant_wrt_ : ∀ {n} (ty : IsoType n) {a} {A : ∀ {l r} (ls : Vec (ℤmod n) l) (rs : Vec (ℤmod n) r) -> Set a}
-                  -> ∀ (f : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> A ls rs)
-                  -> ∀ {ℓ} (P : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> Rel (A ls rs) ℓ)
-                       {{isEquiv : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> IsEquivalence (P {l} {r} {ls} {rs})}} -> Set _
-ty Invariant f wrt P = ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> (ty Iso) =[ f {l} {r} {ls} {rs} ]⇒ P
+-- This is indeed an equivalence relation
+instance
+  Iso-IsEquivalence : ∀ {n} {ty : IsoType n} {ls rs} -> IsEquivalence (_Iso {n} ty {ls} {rs})
+  Iso-IsEquivalence {n} {ty} {ls} {rs}
+    = record { refl = ε ; trans = _++ᵗ_
+             ; sym = ReflTransClosure.reverse (symM (SymClosure.symmetric (ty Gen))) }
 
-_Pattern-Invariant_wrt_ : ∀ {n} (ty : IsoType n) {a} {A : ∀ {l} (ls : Vec (ℤmod n) l) -> Set a}
-                         -> ∀ (f : ∀ {l} {ls : Vec _ l} -> nGradedFD n ls ls -> A ls)
-                         -> ∀ {ℓ} (P : ∀ {l} {ls : Vec _ l} -> Rel (A ls) ℓ)
-                              {{isEquiv : ∀ {l} {ls : Vec _ l} -> IsEquivalence (P {l} {ls})}} -> Set _
-ty Pattern-Invariant f wrt P = ∀ {l} {ls : Vec _ l} -> (ty Iso) =[ f {l} {ls} ]⇒ P
-
-_Link-Invariant_wrt_ : ∀ {n} (ty : IsoType n) {a} {A : Set a}
-                         -> ∀ (f : nGradedFD n [] [] -> A)
-                         -> ∀ {ℓ} (P : Rel A ℓ) {{isEquiv : IsEquivalence P}} -> Set _
-ty Link-Invariant f wrt P = (ty Iso) =[ f ]⇒ P
+instance
+  Iso-Setoid : ∀ {n} {ty : IsoType n} {ls rs} -> Setoid _ _
+  Iso-Setoid {n} {ty} {ls} {rs} = record
+    { Carrier       = nGradedFD n ls rs
+    ; _≈_           = (ty Iso)
+    ; isEquivalence = Iso-IsEquivalence }
 
 
--- Proving _Invariant_wrt_ directly is inconvient... use `pv-invariant` instead!
+module Iso-Reasoning {n} {ty : IsoType n} where
 
--- (see `by-split-+` as a way to prove this)
-resp-+-on_wrt_ : ∀ {n} {a} {A : ∀ {l r} (ls : Vec (ℤmod n) l) (rs : Vec (ℤmod n) r) -> Set a}
-                 -> ∀ (f : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> A ls rs)
-                 -> ∀ {ℓ} (P : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> Rel (A ls rs) ℓ)
-                      {{isEquiv : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> IsEquivalence (P {l} {r} {ls} {rs})}} -> Set _
-resp-+-on f wrt P = ∀ {l m r} {ls : Vec _ l} {ms : Vec _ m} {rs : Vec _ r}
-                    -> (Λl : nGradedFD _ ls ms) {Λl' : nGradedFD _ ls ms} (Λr : nGradedFD _ ms rs) {Λr' : nGradedFD _ ms rs}
-                    -> (P on f) Λl Λl' -> (P on f) Λr Λr' -> (P on f) (Λl + Λr) (Λl' + Λr')
+  infix  4 _IsRelatedTo_
+  infix  3 _∎
+  infixr 2 _⟨_⟩_≅⟨_⟩_ _⟨⟩_≅⟨_⟩_ _≡⟨_⟩_
+  infix  1 begin_
 
--- (see `by-split-∷*` as a way to prove this)
-resp-∷*-on_wrt_ : ∀ {n} {a} {A : ∀ {l r} (ls : Vec (ℤmod n) l) (rs : Vec (ℤmod n) r) -> Set a}
-                  -> ∀ (f : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> A ls rs)
-                  -> ∀ {ℓ} (P : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> Rel (A ls rs) ℓ)
-                       {{isEquiv : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> IsEquivalence (P {l} {r} {ls} {rs})}} -> Set _
-resp-∷*-on f wrt P = ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} (μ : ℤmod _)
-                     -> (Λ : nGradedFD _ ls rs) {Λ' : nGradedFD _ ls rs}
-                     -> (P on f) Λ Λ' -> (P on f) (μ ∷* Λ) (μ ∷* Λ')
+  ι : ∀ {ms ls} -> nGradedFD n ls ms -> nGradedFD n ls ms
+  ι x = x
 
--- (proofs of this should be long but wholly trivial)
-_Gen-Invariant_wrt_ : ∀ {n} (ty : IsoType n) {a} {A : ∀ {l r} (ls : Vec (ℤmod n) l) (rs : Vec (ℤmod n) r) -> Set a}
-                      -> ∀ (f : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> A ls rs)
-                      -> ∀ {ℓ} (P : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> Rel (A ls rs) ℓ)
-                           {{isEquiv : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> IsEquivalence (P {l} {r} {ls} {rs})}} -> Set _
-ty Gen-Invariant f wrt P = ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> (ty Gen) =[ f {l} {r} {ls} {rs} ]⇒ P
+  data _IsRelatedTo_ {ls rs} (x y : nGradedFD n ls rs) : Set where
+    relTo : (ty Iso) x y → x IsRelatedTo y
+  
+  begin_ : ∀ {ls rs} {x y : nGradedFD n ls rs} → x IsRelatedTo y → (ty Iso) x y
+  begin relTo x∼y = x∼y
 
+  _⟨_⟩_≅⟨_⟩_ : ∀ {ls ms₁ ms₂ rs}
+             -> (Λl : nGradedFD n ls ms₁)
+             -> (Λ₁ : ∀ {ls} -> nGradedFD n ls ms₁ -> nGradedFD n ls ms₂)
+             -> (Λr : ∀ {ls} -> nGradedFD n ls ms₂ -> nGradedFD n ls rs)
+             -> {Λ₂ : nGradedFD n ms₁ ms₂} {Λ' : nGradedFD n ls rs}
+             -> (ty Iso) (Λ₁ (idPat ms₁)) Λ₂
+             -> (Λl ∙ Λ₂ ∙ (Λr (idPat _))) IsRelatedTo Λ'
+             -> (Λl ∙ (Λ₁ (idPat _)) ∙ (Λr (idPat _))) IsRelatedTo Λ'
+  Λl ⟨ Λ₁ ⟩ Λr ≅⟨ p ⟩ relTo q = relTo ((Λl ∙ᵗˡ p ∙ᵗʳ Λr (idPat _)) ++ᵗ q)
 
-pv-invariant : ∀ {n} {ty : IsoType n} {a} {A : ∀ {l r} (ls : Vec (ℤmod n) l) (rs : Vec (ℤmod n) r) -> Set a}
-               -> ∀ (f : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> A ls rs)
-               -> ∀ {ℓ} {P : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> Rel (A ls rs) ℓ}
-                    {{isEquiv : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> IsEquivalence (P {l} {r} {ls} {rs})}}
-               -> resp-+-on f wrt P
-               -> resp-∷*-on f wrt P
-               -> ty Gen-Invariant f wrt P
-               -> ty Invariant f wrt P
-pv-invariant {n} {ty} f {P = P} {{isEquiv = pf}} rsp-+ rsp-∷* gen-invar
-  = ReflTransClosureEq ∘ ReflTransClosure.gmap f ~invar
-  where ~invar : _~_ =[ f ]⇒ P
-        ~invar (x below ts btwn Λl , Λr)
-          = rsp-+ _ Λr (rsp-+ Λl _ (IsEquivalence.refl pf) (rsp-above ts (sym-gen-invar x)))
-                       (IsEquivalence.refl pf)
-          where sym-gen-invar : SymClosure (ty Gen) =[ f ]⇒ P
-                sym-gen-invar (fwd x) = gen-invar x
-                sym-gen-invar (bwd y) = IsEquivalence.sym pf (gen-invar y)
-                rsp-above : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} {Λ₁ Λ₂ : nGradedFD _ ls rs}
-                            -> ∀ {t} (ts : Vec _ t)
-                            -> (P on f) Λ₁ Λ₂ -> (P on f) (ts above Λ₁) (ts above Λ₂)
-                rsp-above [] eq = eq
-                rsp-above (x ∷ ts) eq = rsp-∷* x _ (rsp-above ts eq)
-                
-        ReflTransClosureEq : ∀ {a ℓ} {A : Set a} {P : Rel A ℓ} {{isEquiv : IsEquivalence P}} -> ReflTransClosure P ⇒ P
-        ReflTransClosureEq {{isEquiv = pf}} ε        = IsEquivalence.refl pf
-        ReflTransClosureEq {{isEquiv = pf}} (x ◅ xs) = IsEquivalence.trans pf x (ReflTransClosureEq xs)
+  _⟨⟩_≅⟨_⟩_ = λ {ls} {ms} {rs} Λl → _⟨_⟩_≅⟨_⟩_ {ls} {ms} {ms} {rs} Λl ι
+
+  _≡⟨_⟩_ : ∀ {ls rs} x {y z : nGradedFD n ls rs} → x ≡ y → y IsRelatedTo z → x IsRelatedTo z
+  _ ≡⟨ refl ⟩ p = p
+  
+  _∎ : ∀ {ls rs} (x : nGradedFD n ls rs) → x IsRelatedTo x
+  _∎ _ = relTo ε
 
 
-
--- In fact, proving _Invariant_wrt_ with pv-invariant is also inconvient, the following functions make it simpler:
--- (TBD if there are any proofs which *cannot* go through using these...)
--- [currently unfinished! - f not fully dependent]
-
--- (ideally just an unfolding of f)
-_splits-+-on_ : ∀ {n} {a} {A : Set a} (_+'_ : A -> A -> A)
-                -> ∀ (f : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> A) -> Set _
-_+'_ splits-+-on f = ∀ {l m r} {ls : Vec _ l} {ms : Vec _ m} {rs : Vec _ r}
-                     -> (Λl : nGradedFD _ ls ms) (Λr : nGradedFD _ ms rs)
-                     -> f(Λl + Λr) ≡ f(Λl) +' f(Λr)
-
--- (trivial for _≡_)
-_resp-+-wrt_ : ∀ {a} {A : Set a} (_+'_ : A -> A -> A)
-               -> ∀ {ℓ} (P : Rel A ℓ) {{isEquiv : IsEquivalence P}} -> Set _
-_+'_ resp-+-wrt P = ∀ a {a'} b {b'} -> P a a' -> P b b' -> P (a +' b) (a' +' b')
-
-
-by-split-+ : ∀ {n} {a} {A : Set a}
-             -> ∀ {f : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> A}
-             -> ∀ {ℓ} {P : Rel A ℓ} {{isEquiv : IsEquivalence P}}
-             -> {_+'_ : A -> A -> A}
-             -> _+'_ splits-+-on f
-             -> _+'_ resp-+-wrt P
-             -> resp-+-on f wrt P
-by-split-+ spl rsp Λl {Λl'} Λr {Λr'} eql eqr rewrite spl Λl Λr | spl Λl' Λr' = rsp _ _ eql eqr
-
-
--- (trivial for _≡_)
-_splits-∷*-on_ : ∀ {n} {a} {A : Set a} (_∷'_ : ℤmod n -> A -> A)
-                 -> ∀ (f : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> A) -> Set _
-_∷'_ splits-∷*-on f = ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} μ
-                      -> (Λ : nGradedFD _ ls rs)
-                      -> f(μ ∷* Λ) ≡ μ ∷' f(Λ)
-
--- (ideally just an unfolding of f)
-_resp-∷*-wrt_ : ∀ {n} {a} {A : Set a} (_∷'_ : ℤmod n -> A -> A)
-                -> ∀ {ℓ} (P : Rel A ℓ) {{isEquiv : IsEquivalence P}} -> Set _
-_∷'_ resp-∷*-wrt P = ∀ μ b {b'} -> P b b' -> P (μ ∷' b) (μ ∷' b')
-
-
-by-split-∷* : ∀ {n} {a} {A : Set a}
-              -> ∀ {f : ∀ {l r} {ls : Vec _ l} {rs : Vec _ r} -> nGradedFD n ls rs -> A}
-              -> ∀ {ℓ} {P : Rel A ℓ} {{isEquiv : IsEquivalence P}}
-              -> {_∷'_ : ℤmod n -> A -> A}
-              -> _∷'_ splits-∷*-on f
-              -> _∷'_ resp-∷*-wrt P
-              -> resp-∷*-on f wrt P
-by-split-∷* spl rsp xs Λ {Λ'} eq rewrite spl xs Λ | spl xs Λ' = rsp xs _ eq
-
-
+-- Applying a single generator
+gen : ∀ {n} {ty : IsoType n} {ls rs} {Λ₁ Λ₂ : nGradedFD n ls rs} -> (ty Gen) Λ₁ Λ₂ -> (ty Iso) Λ₁ Λ₂
+gen {_} {ty} {ls} {rs} {Λ₁} {Λ₂} p = rwr (emb (inj₁ p) []* []* (idPat ls) (idPat rs)) ∷ᵗ ε
+  where rwr : MonoidalClosure _ (idPat _ ∙ Λ₁) (idPat _ ∙ Λ₂) -> MonoidalClosure _ Λ₁ Λ₂
+        rwr p rewrite ∙-idˡ Λ₁ | ∙-idˡ Λ₂ = p
 
 -- Testing/Examples:
 
-ex-R1 : (Legn Iso) ([] <: b+ 0 , d 0) _
-ex-R1 = (fwd R1-b       below ([] , gr _) btwn (_ <: b+ 0) , (_ <: d 0)) ◅
-        (bwd (R0-d-d 0) below [] btwn ([] <: b+ 0 , b- 2 , c 1) , idPat []) ◅ ε
+-- ex-R1 : (Legn Iso) ([] <: b+ 0 , d 0) ([] <: b+ 0 , b+ 1 , c 0 , c 0 , c 1 , d 0 , d 0)
+-- ex-R1 = begin
+--   [] <: b+ 0 ⟨⟩ d 0 ≅⟨ gen R1-b ▻ᵗ _ ⟩
+--   [] <: b+ 0 , b+ 1 , c 0 ⟨ d 1 ⟩ d 0 ≅⟨ gen R2-d-b ▻ᵗ _ ⟩
+--   [] <: b+ 0 ⟨ b+ 1 ⟩ c 0 , c 0 , c 1 , d 0 , d 0 ≅⟨ (1 ∷* []*) ◅ᵗ gen R2-b-a ⟩
+--   [] <: b+ 0 , b 2 , c 1 , c 2 , c 0 , c 0 , c 1 , d 0 , d 0 ∎
+--   where open Iso-Reasoning
 
+-- ex-rr : (Legn Iso) ([] <: b+ 0 , b+ 1 , c 0 , c 0 , c 1 , d 0 , d 0) ([] <: b+ 0 , b+ 2 , c 1 , c 2 , c 0 , c 0 , c 1 , d 0 , d 0)
+-- ex-rr = begin
+--   [] <: b+ 0 ⟨ b+ 1 ⟩ c 0 , c 0 , c 1 , d 0 , d 0 ≅⟨ ? ⟩
+--   [] <: b+ 0 , b+ 2 , c 1 , c 2 , c 0 , c 0 , c 1 , d 0 , d 0 ∎
+--   where open Iso-Reasoning

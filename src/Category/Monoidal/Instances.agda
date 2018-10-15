@@ -35,26 +35,28 @@ IsMonoid-IsPreMonoidalCategory
     -> IsPreMonoidalCategory (_≡_ {A = ⊤}) (_∼_ on-≡)
                              (\ _ _ -> tt) tt _∙_ (\ _ -> id)
                              (\ _ x -> x) (\ x _ -> x)
-IsMonoid-IsPreMonoidalCategory {A = A} {_∼_} {_∙_} isMonoid = record
+IsMonoid-IsPreMonoidalCategory {A = A} {_∼_} {_∙_} {id} isMonoid = record
   { ∘-isMonoid = ⊤-isMonoid
   -- axioms of a monoid ~> axioms of a category
   ; isEquivOn = Equiv-on-≡ {{\ _ _ -> isEquivalence}}
+  ; B-cong = λ _ _ x → x
+  ; Id-cong = cong₀-on-≡ (\ _ -> id) (λ _ → refl)
   ; ∙-cong = cong₂-on-≡ _∙_ ∙-cong
   ; 2-assoc = λ x y z -> wrap (assoc x y z)
   ; 2-identityˡ = λ x → wrap (identityˡ x)
   ; 2-identityʳ = λ x → wrap (identityʳ x)
   -- the rest are trivial
-  ; wsk-congˡ = λ _ → id
-  ; wsk-congʳ = λ _ → id
-  ; wsk-assoc = λ _ → refl-on
+  ; wsk-congˡ = λ _ x → x
+  ; wsk-congʳ = λ _ x → x
+  ; wsk-assoc = λ _ _ _ → refl-on
   ; wsk-identityˡ = λ _ → refl-on
   ; wsk-identityʳ = λ _ → refl-on
-  ; ∘-acts-on-wskˡ = λ _ → refl-on
-  ; ∘-acts-on-wskʳ = λ _ → refl-on
-  ; wsk-2-identityˡ = refl-on
-  ; wsk-2-identityʳ = refl-on
-  ; wsk-distribˡ = λ _ _ → refl-on
-  ; wsk-distribʳ = λ _ _ → refl-on }
+  ; ∘-acts-on-wskˡ = λ _ _ _ → refl-on
+  ; ∘-acts-on-wskʳ = λ _ _ _ → refl-on
+  ; wsk-2-identityˡ = λ _ _ → refl-on
+  ; wsk-2-identityʳ = λ _ _ → refl-on
+  ; wsk-distribˡ = λ _ _ _ → refl-on
+  ; wsk-distribʳ = λ _ _ _ → refl-on }
   where open IsMonoid isMonoid
         open Heterogenous ⊤ _≡_ (\ _ _ -> A) (_∼_ on-≡)
         open HeterogenousEquivalenceOn {{_}} {{Equiv-on-≡ {{\ _ _ -> isEquivalence}}}}

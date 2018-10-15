@@ -5,7 +5,7 @@ open import Level using (_⊔_)
 module Category.Monoidal.Structure {ℓa ℓb ℓ₁ ℓ₂} {A : Set ℓa} {B : Rel A ℓb}
                                    (_∼_ : Rel A ℓ₁) (_≈_by_,_ : Rel-on _∼_ B ℓ₂) where
 
-open import Algebra.FunctionProperties using (Op₂)
+open import Algebra.FunctionProperties using (Op₂; Congruent₂)
 open import Algebra.Structures as Algebra using (IsMonoid)
 
 
@@ -34,7 +34,10 @@ record IsPreMonoidalCategory (_∘_ : Op₂ A) (id : Op₀ A) (_∙_ : 2-Op₂ A
 
        field -- _∙_ forms a category
          isEquivOn   : IsEquivalenceOn {{isEquivalence}} B _≈_by_,_
+         B-cong      : ∀ {a a' b b'} -> a ∼ a' -> b ∼ b' -> B a b -> B a' b'
+         -- ^ Really we want univalence, so this is a bit incomplete...
          ∙-cong      : Congruent₂-on _∙_
+         Id-cong     : Congruent₀-on Id
          2-assoc     : ∀ {a b c d} (x : B a b) (y : B b c) (z : B c d)
                        -> ((x ∙ y) ∙ z) ≈ (x ∙ (y ∙ z))
          2-identityˡ : ∀ {a b} (x : B a b) -> (Id a ∙ x) ≈ x
@@ -47,23 +50,23 @@ record IsPreMonoidalCategory (_∘_ : Op₂ A) (id : Op₀ A) (_∙_ : 2-Op₂ A
                      -> c ∼ c' -> x ≈ y -> x ▻ c ≈ y ▻ c'
 
        field -- whiskering is associative
-         wsk-assoc : ∀ {a b c d} (x : B b c)
+         wsk-assoc : ∀ a {b c} (x : B b c) d
                      -> ((a ◅ x) ▻ d) ≈ (a ◅ (x ▻ d)) -- by assoc a b d , assoc a c d
 
        field -- whiskering is a monoid action on _∘_
          wsk-identityˡ  : ∀ {a b} (x : B a b) -> (id ◅ x) ≈ x -- by identityˡ a , identityˡ b
          wsk-identityʳ  : ∀ {a b} (x : B a b) -> (x ▻ id) ≈ x -- by identityʳ a , identityʳ b 
-         ∘-acts-on-wskˡ : ∀ {a b c d} (x : B c d)
+         ∘-acts-on-wskˡ : ∀ a b {c d} (x : B c d)
                           -> ((a ∘ b) ◅ x) ≈ (a ◅ (b ◅ x)) -- by assoc a b c , assoc a b d
-         ∘-acts-on-wskʳ : ∀ {a b c d} (x : B a b)
+         ∘-acts-on-wskʳ : ∀ {a b} (x : B a b) c d
                           -> ((x ▻ c) ▻ d) ≈ (x ▻ (c ∘ d)) -- by assoc a c d , assoc b c d
 
        field -- whiskering is an endofunctor on _∙_
-         wsk-2-identityˡ : ∀ {a b} -> (a ◅ Id b) ≈ (Id (a ∘ b))
-         wsk-2-identityʳ : ∀ {a b} -> (Id a ▻ b) ≈ (Id (a ∘ b))
-         wsk-distribˡ    : ∀ {a b c d} (x : B b c) (y : B c d)
+         wsk-2-identityˡ : ∀ a b -> (a ◅ Id b) ≈ (Id (a ∘ b))
+         wsk-2-identityʳ : ∀ a b -> (Id a ▻ b) ≈ (Id (a ∘ b))
+         wsk-distribˡ    : ∀ a {b c d} (x : B b c) (y : B c d)
                            -> (a ◅ (x ∙ y)) ≈ ((a ◅ x) ∙ (a ◅ y))
-         wsk-distribʳ    : ∀ {a b c d} (x : B a b) (y : B b c)
+         wsk-distribʳ    : ∀ {a b c} (x : B a b) (y : B b c) d
                            -> ((x ∙ y) ▻ d) ≈ ((x ▻ d) ∙ (y ▻ d))
 
        open HeterogenousEquivalenceOn {{isEquivalence}} {{isEquivOn}} public
